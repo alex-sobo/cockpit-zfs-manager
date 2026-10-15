@@ -4946,23 +4946,27 @@ async function FnFileSystemsGetCommand(pool = { name, id, altroot: false, boot: 
             actionsmenu: null
         };
 
-        let existingReplicationTask = null;
+        let replicationProperty = "No";
 
         try {
-            let command = ['znapzendzetup', 'list', filesystem.properties[1]];
+            let command = ['zfs', 'get', '-H', '-o', 'value', 'org.openzfs:replication', filesystem.properties[1]];
 
-            let content = await cockpit.spawn(command, { err: "out", superuser: "require" });
+            let propval = await cockpit.spawn(command, { err: "out", superuser: "require" });
+            let value = propval.trim();
 
-            if (content.includes('cannot list backup config')) {
-                existingReplicationTask = false;
+            if (value === "default" || value === "") {
+                replicationProperty = "No";
+            } else if (value.startsWith("Error")) {
+                replicationProperty = value;
             } else {
-                existingReplicationTask = true;
+                replicationProperty = value;
             }
         } catch (error) {
-            console.log('error', error);
+            console.log('error reading replication property', error);
+            replicationProperty = "Error";
         }
 
-        filesystem.properties.splice(13, 0, typeof existingReplicationTask !== 'boolean' ? 'Error' : existingReplicationTask ? 'Yes' : 'No');
+        filesystem.properties.splice(13, 0, replicationProperty);
 
         filesystem.output = `<tr>`;
 
